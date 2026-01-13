@@ -1,4 +1,5 @@
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { FlowEditor } from '@/components/features/flows/FlowEditor';
 import MainLayout from '@/components/layout/MainLayout';
 import { Toaster } from '@/components/ui/toaster';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -137,6 +138,16 @@ function App() {
           element={
             <ProtectedRoute>
               <DefineArea />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Flow Editor - Full screen */}
+        <Route
+          path="/flows/:id"
+          element={
+            <ProtectedRoute>
+              <FlowEditor />
             </ProtectedRoute>
           }
         />

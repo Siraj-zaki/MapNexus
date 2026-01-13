@@ -6,18 +6,41 @@
  */
 
 import { useAuthStore } from '@/stores/authStore';
+import { useDoorStore } from '@/stores/doorStore';
 import { useEditorStore } from '@/stores/editorStore';
+import { useObjectStore } from '@/stores/objectStore';
+import { usePoiStore } from '@/stores/poiStore';
+import { useWallStore } from '@/stores/wallStore';
+import { useWindowStore } from '@/stores/windowStore';
+import { useZoneStore } from '@/stores/zoneStore';
 import * as turf from '@turf/turf';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
+import { DoorPlacementTool } from './DoorPlacementTool';
+import { DoorPropertiesPanel } from './DoorPropertiesPanel';
+import { ObjectDrawingTool } from './ObjectDrawingTool';
+import { ObjectPropertiesPanel } from './ObjectPropertiesPanel';
+import { ObjectRenderer } from './ObjectRenderer';
+import { SVGDoorRenderer } from './SVGDoorRenderer';
+import { SVGObjectRenderer } from './SVGObjectRenderer';
+import { SVGWallRenderer } from './SVGWallRenderer';
+import { SVGWindowRenderer } from './SVGWindowRenderer';
 import { WallDrawingTool } from './WallDrawingTool';
 import { WallRenderer } from './WallRenderer';
+import { WindowPlacementTool } from './WindowPlacementTool';
+import { WindowPropertiesPanel } from './WindowPropertiesPanel';
 import { ZoneDrawingTool } from './ZoneDrawingTool';
 import { ZonePropertiesPanel } from './ZonePropertiesPanel';
 import { ZoneRenderer } from './ZoneRenderer';
+
+// --- NEW IMPORTS ---
+import { PoiPlacementTool } from './PoiPlacementTool';
+import { PoiPropertiesPanel } from './PoiPropertiesPanel';
+import { PoiRenderer } from './PoiRenderer';
+// -------------------
 
 // ============================================
 // Constants
@@ -40,7 +63,7 @@ export function getMapInstance() {
 export function EditorCanvas() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
-  const source = searchParams.get('type'); // 'upload', 'address', 'demo'
+  const source = searchParams.get('type');
 
   const { token } = useAuthStore();
 
@@ -48,7 +71,7 @@ export function EditorCanvas() {
   const map = useRef<mapboxgl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
 
-  const { setZoom, activeTool, isGridVisible, currentFloorId } = useEditorStore();
+  const { setZoom, activeTool, isGridVisible, currentFloorId, isPublished } = useEditorStore();
 
   // Initialize map
   useEffect(() => {
@@ -56,12 +79,10 @@ export function EditorCanvas() {
 
     mapboxgl.accessToken = MAPBOX_TOKEN;
 
-    // Get starting location from storage
     let center = DEFAULT_CENTER;
     let zoom = DEFAULT_ZOOM;
     let bearing = 0;
 
-    // Load position from session storage
     const positionData = sessionStorage.getItem('floorPlanPosition');
     if (positionData) {
       try {
@@ -75,7 +96,6 @@ export function EditorCanvas() {
       }
     }
 
-    // Fallback to location data
     const locationData = sessionStorage.getItem('mapLocation');
     if (!positionData && locationData) {
       try {
@@ -93,7 +113,7 @@ export function EditorCanvas() {
       style: 'mapbox://styles/mapbox/dark-v11',
       center,
       zoom,
-      pitch: 45, // Enable 3D perspective for wall extrusion
+      pitch: 0,
       bearing,
       antialias: true,
     });
@@ -103,7 +123,6 @@ export function EditorCanvas() {
     map.current.on('load', () => {
       setMapLoaded(true);
 
-      // Load floor plan overlay if coming from upload flow
       if (source === 'upload') {
         loadFloorPlanOverlay(map.current!);
       }
@@ -126,28 +145,84 @@ export function EditorCanvas() {
     };
   }, []);
 
-  // Load floor plan as image overlay
+  // Global Delete Handler
+  const { selectedWallId, deleteWall, selectWall } = useWallStore();
+  const { selectedDoorId, deleteDoor, selectDoor } = useDoorStore();
+  const { selectedWindowId, deleteWindow, selectWindow } = useWindowStore();
+  const { selectedZoneId, deleteZone, selectZone } = useZoneStore();
+  const { selectedObjectId, deleteObject, selectObject } = useObjectStore();
+  const { selectedPoiId, removePoi, selectPoi } = usePoiStore();
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedWallId) {
+          deleteWall(selectedWallId);
+          selectWall(null);
+        }
+        if (selectedDoorId) {
+          deleteDoor(selectedDoorId);
+          selectDoor(null);
+        }
+        if (selectedWindowId) {
+          deleteWindow(selectedWindowId);
+          selectWindow(null);
+        }
+        if (selectedZoneId) {
+          deleteZone(selectedZoneId);
+          selectZone(null);
+        }
+        if (selectedObjectId) {
+          deleteObject(selectedObjectId);
+          selectObject(null);
+        }
+        if (selectedPoiId) {
+          removePoi(selectedPoiId);
+          selectPoi(null);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    selectedWallId,
+    deleteWall,
+    selectWall,
+    selectedDoorId,
+    deleteDoor,
+    selectDoor,
+    selectedWindowId,
+    deleteWindow,
+    selectWindow,
+    selectedZoneId,
+    deleteZone,
+    selectZone,
+    selectedObjectId,
+    deleteObject,
+    selectObject,
+    selectedPoiId,
+    removePoi,
+    selectPoi,
+  ]);
+
   const loadFloorPlanOverlay = async (mapInst: mapboxgl.Map) => {
     const positionData = sessionStorage.getItem('floorPlanPosition');
     const uploadedFloors = sessionStorage.getItem('uploadedFloors');
 
-    if (!positionData || !uploadedFloors) {
-      console.log('Missing position or floor data');
-      return;
-    }
+    if (!positionData || !uploadedFloors) return;
 
     try {
       const position = JSON.parse(positionData);
       const floors = JSON.parse(uploadedFloors);
 
-      if (!position.worldPosition || floors.length === 0) {
-        console.log('Invalid position or empty floors');
-        return;
-      }
+      if (!position.worldPosition || floors.length === 0) return;
 
       const { center, width, height, bearing } = position.worldPosition;
 
-      // Calculate the bounding box corners using Turf.js
       const halfWidthKm = width / 2 / 1000;
       const halfHeightKm = height / 2 / 1000;
       const centerPoint = turf.point(center);
@@ -182,12 +257,9 @@ export function EditorCanvas() {
           coords[3] as [number, number],
         ];
 
-      // Load the first floor's image
       const floor = floors[0];
       if (floor.imageUrl) {
         const imageUrl = `${BASE_URL}${floor.imageUrl}`;
-        console.log('Loading floor plan from:', imageUrl);
-
         try {
           const response = await fetch(imageUrl, {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -196,7 +268,6 @@ export function EditorCanvas() {
           if (response.ok) {
             const blob = await response.blob();
             const blobUrl = URL.createObjectURL(blob);
-            console.log('Floor plan blob created:', blobUrl);
 
             mapInst.addSource('floor-plan', {
               type: 'image',
@@ -214,7 +285,6 @@ export function EditorCanvas() {
               },
             });
 
-            // Fit map to the floor plan bounds
             const bbox = turf.bbox(polygon);
             mapInst.fitBounds(
               [
@@ -223,17 +293,12 @@ export function EditorCanvas() {
               ],
               { padding: 50, duration: 1000 }
             );
-
-            console.log('Floor plan layer added successfully');
-          } else {
-            console.error('Failed to fetch floor plan:', response.status);
           }
         } catch (e) {
           console.error('Could not load floor plan image:', e);
         }
       }
 
-      // Add boundary outline
       mapInst.addSource('floor-boundary', {
         type: 'geojson',
         data: polygon,
@@ -254,13 +319,25 @@ export function EditorCanvas() {
     }
   };
 
-  // Grid toggle
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
     isGridVisible ? addGridLayer() : removeGridLayer();
   }, [isGridVisible, mapLoaded]);
 
-  // Cursor based on tool
+  // Toggle Floor Plan visibility based on Publish Mode
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+
+    const visibility = isPublished ? 'none' : 'visible';
+
+    if (map.current.getLayer('floor-plan-layer')) {
+      map.current.setLayoutProperty('floor-plan-layer', 'visibility', visibility);
+    }
+    if (map.current.getLayer('floor-boundary-outline')) {
+      map.current.setLayoutProperty('floor-boundary-outline', 'visibility', visibility);
+    }
+  }, [isPublished, mapLoaded]);
+
   useEffect(() => {
     if (!mapContainer.current) return;
     const cursors: Record<string, string> = {
@@ -308,18 +385,44 @@ export function EditorCanvas() {
         style={{ cursor: activeTool === 'pan' ? 'grab' : 'crosshair' }}
       />
 
-      {/* Wall Drawing Tool - Always render when map is loaded */}
       {mapLoaded && map.current && (
         <>
           <WallDrawingTool map={map.current} floorId={currentFloorId || 'floor-1'} />
-          <WallRenderer map={map.current} floorId={currentFloorId || 'floor-1'} />
+
+          {/* --- NEW TOOLS & RENDERERS --- */}
+          <PoiPlacementTool map={map.current} floorId={currentFloorId || 'floor-1'} />
+          <PoiRenderer map={map.current} floorId={currentFloorId || 'floor-1'} />
+          {/* ----------------------------- */}
+
+          {isPublished ? (
+            <>
+              <ObjectRenderer map={map.current} floorId={currentFloorId || 'floor-1'} />
+              <WallRenderer map={map.current} floorId={currentFloorId || 'floor-1'} />
+            </>
+          ) : (
+            <>
+              <SVGObjectRenderer map={map.current} floorId={currentFloorId || 'floor-1'} />
+              <SVGWallRenderer map={map.current} floorId={currentFloorId || 'floor-1'} />
+              <SVGDoorRenderer map={map.current} floorId={currentFloorId || 'floor-1'} />
+              <SVGWindowRenderer map={map.current} floorId={currentFloorId || 'floor-1'} />
+            </>
+          )}
+          <DoorPlacementTool map={map.current} floorId={currentFloorId || 'floor-1'} />
+          <WindowPlacementTool map={map.current} floorId={currentFloorId || 'floor-1'} />
+          <ObjectDrawingTool map={map.current} floorId={currentFloorId || 'floor-1'} />
           <ZoneDrawingTool map={map.current} floorId={currentFloorId || 'floor-1'} />
           <ZoneRenderer map={map.current} floorId={currentFloorId || 'floor-1'} />
         </>
       )}
 
-      {/* Zone Properties Panel */}
       {mapLoaded && <ZonePropertiesPanel />}
+      {mapLoaded && <DoorPropertiesPanel />}
+      {mapLoaded && <WindowPropertiesPanel />}
+      {mapLoaded && <ObjectPropertiesPanel />}
+
+      {/* --- NEW PANEL --- */}
+      {mapLoaded && <PoiPropertiesPanel />}
+      {/* ----------------- */}
 
       {!mapLoaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
@@ -337,7 +440,6 @@ export function EditorCanvas() {
         </p>
       </div>
 
-      {/* Wall tool hint */}
       {activeTool === 'wall' && mapLoaded && (
         <div className="absolute bottom-24 start-1/2 -translate-x-1/2 z-10 px-4 py-2 rounded-lg bg-neutral-800/90 backdrop-blur-sm border border-neutral-700">
           <p className="text-sm text-neutral-300">

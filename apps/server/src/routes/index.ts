@@ -5,6 +5,7 @@ import customDataRoutes from './customData.js';
 import customTablesRoutes from './customTables.js';
 import reportsRoutes from './reports.js';
 import uploadRoutes from './upload.js';
+import workflowRoutes from './workflow.js';
 
 const router = Router();
 
@@ -81,6 +82,9 @@ router.use('/custom-data', customDataRoutes);
 
 // Report builder routes (protected)
 router.use('/reports', reportsRoutes);
+
+// Workflow routes (protected)
+router.use('/workflows', workflowRoutes);
 
 // Placeholder protected routes
 router.get('/venues', (_req, res) => {

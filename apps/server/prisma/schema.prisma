@@ -318,6 +318,7 @@ model CustomTable {
   
   fields      CustomField[]
   history     CustomDataHistory[]
+  workflows   Workflow[]
   
   isActive    Boolean  @default(true)
   createdBy   String
@@ -503,4 +504,49 @@ model GeneratedReport {
   @@index([templateId])
   @@index([status])
   @@index([generatedAt])
+}
+
+// ============================================
+// WORKFLOW AUTOMATION
+// ============================================
+
+model Workflow {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  triggerType String   // "RECORD_CREATED", "RECORD_UPDATED", "SCHEDULED", "MANUAL"
+  isActive    Boolean  @default(false)
+  
+  // Trigger Configuration
+  tableId     String?  // If trigger is record-based
+  table       CustomTable? @relation(fields: [tableId], references: [id])
+  
+  // Flow Configuration (React Flow)
+  nodes       Json     // Node definitions
+  edges       Json     // Edge definitions
+  
+  executions  WorkflowExecution[]
+  
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([tableId])
+}
+
+model WorkflowExecution {
+  id          String   @id @default(uuid())
+  workflowId  String
+  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  
+  status      String   // "PENDING", "RUNNING", "COMPLETED", "FAILED"
+  logs        Json?    // Execution logs
+  
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  
+  @@index([workflowId])
+  @@index([status])
+  @@index([startedAt])
 }

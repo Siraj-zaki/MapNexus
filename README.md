@@ -1,6 +1,48 @@
-# Indoor Map Platform
+# MapNexus
 
-A comprehensive indoor mapping and IoT platform for retail and industrial applications. Built with modern technologies for scalability, real-time data processing, and beautiful visualizations.
+![Status](https://img.shields.io/badge/Status-Work_in_Progress-yellow)
+![License](https://img.shields.io/badge/License-MIT-blue)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+> [!WARNING]  
+> **Work in Progress**: This project is currently in active development. Features, APIs, and database schemas are subject to change without notice.
+
+**The open-source operating system for indoor mapping, IoT intelligence, and spatial workflows.**
+
+Built for retail, industrial, and smart building applications with scalability, real-time data processing, and beautiful visualizations at its core.
+
+## 🎯 Project Vision (End Goal)
+
+The ultimate goal of this project is to build a fully functional **Indoor Mapping & Intelligence Operating System**. We are working towards:
+
+1.  **🧭 Advanced Indoor Navigation**: Seamless wayfinding with A\* pathfinding and multi-floor routing.
+2.  **📊 Data Visualization**: Rich, interactive dashboards for IoT and spatial analytics.
+3.  **🗃️ Dynamic Data Management**: On-the-fly table creation and schema management (Headless CMS-like features).
+4.  **📈 Advanced Reporting**: Automated and customizable reports for operational insights.
+5.  **⚡ Workflow Automation**: Trigger-based actions and business process automation.
+6.  🤖 **AI Integration**: Generative AI for insights, predictive maintenance, and natural language queries.
+
+## 📸 Gallery
+
+<p align="center">
+  <img src="docs/screenshots/screenshot-1.png" width="45%" alt="Screenshot 1" />
+  <img src="docs/screenshots/screenshot-2.png" width="45%" alt="Screenshot 2" />
+  <img src="docs/screenshots/screenshot-3.png" width="45%" alt="Screenshot 3" />
+  <img src="docs/screenshots/screenshot-4.png" width="45%" alt="Screenshot 4" />
+  <img src="docs/screenshots/screenshot-5.png" width="45%" alt="Screenshot 5" />
+  <img src="docs/screenshots/screenshot-6.png" width="45%" alt="Screenshot 6" />
+</p>
+
+<details>
+<summary>View More Screenshots</summary>
+<p align="center">
+  <img src="docs/screenshots/screenshot-7.png" width="45%" alt="Screenshot 7" />
+  <img src="docs/screenshots/screenshot-8.png" width="45%" alt="Screenshot 8" />
+  <img src="docs/screenshots/screenshot-9.png" width="45%" alt="Screenshot 9" />
+  <img src="docs/screenshots/screenshot-10.png" width="45%" alt="Screenshot 10" />
+  <img src="docs/screenshots/screenshot-11.png" width="45%" alt="Screenshot 11" />
+</p>
+</details>
 
 ## ✨ Features
 

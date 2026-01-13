@@ -80,6 +80,26 @@ export function validateTableDefinition(definition: CustomTableDefinition): {
     // Validate IoT fields
     const iotErrors = validateIoTField(field);
     errors.push(...iotErrors);
+
+    // Validate SELECT fields
+    if (field.dataType === 'SELECT') {
+      if (
+        !field.validation?.options ||
+        !Array.isArray(field.validation.options) ||
+        field.validation.options.length === 0
+      ) {
+        errors.push(`Field ${field.name}: SELECT requires validation.options`);
+      }
+    }
+
+    // Validate RELATION fields
+    if (field.dataType === 'RELATION') {
+      if (!field.relationTable) {
+        errors.push(`Field ${field.name}: RELATION requires relationTable`);
+      }
+      // relationField is usually 'id' implicitly if not set, but let's enforce or default it?
+      // The Type definition says relationField is optional, but for clarity let's check it if needed.
+    }
   });
 
   // Check for duplicate field names

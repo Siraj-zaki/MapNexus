@@ -55,6 +55,10 @@ const DATA_TYPES = [
   { value: 'GEOMETRY_POLYGON', label: 'Polygon', group: 'Spatial', requiresGeometry: true },
   { value: 'GEOMETRY_LINESTRING', label: 'LineString', group: 'Spatial', requiresGeometry: true },
   { value: 'IOT_SENSOR', label: 'IoT Sensor', group: 'IoT', requiresIoT: true },
+  { value: 'IMAGE', label: 'Image', group: 'Media' },
+  { value: 'COLOR', label: 'Color', group: 'UI' },
+  { value: 'SELECT', label: 'Select (Enum)', group: 'UI', requiresOptions: true },
+  { value: 'RELATION', label: 'Relation', group: 'Data', requiresRelation: true },
   { value: 'JSONB', label: 'JSONB', group: 'Other' },
   { value: 'UUID', label: 'UUID', group: 'Other' },
 ];
@@ -290,6 +294,9 @@ export function CreateTableDialog({ isOpen, onClose, onSuccess }: CreateTableDia
                                   'Date',
                                   'Spatial',
                                   'IoT',
+                                  'Media',
+                                  'UI',
+                                  'Data',
                                   'Other',
                                 ].map((group) => (
                                   <SelectGroup key={group}>
@@ -474,6 +481,46 @@ export function CreateTableDialog({ isOpen, onClose, onSuccess }: CreateTableDia
                                 }
                               />
                             </div>
+                          </div>
+                        )}
+
+                        {/* Conditional: SELECT Options */}
+                        {field.dataType === 'SELECT' && (
+                          <div className="pt-2 border-t space-y-2">
+                            <Label>Options (comma separated)</Label>
+                            <Input
+                              placeholder="Option 1, Option 2, Option 3"
+                              value={field.validation?.options?.join(', ') || ''}
+                              onChange={(e) => {
+                                const options = e.target.value
+                                  .split(',')
+                                  .map((s) => s.trim())
+                                  .filter(Boolean);
+                                updateField(index, {
+                                  validation: { ...field.validation, options },
+                                });
+                              }}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Values to display in the dropdown
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Conditional: RELATION Table */}
+                        {field.dataType === 'RELATION' && (
+                          <div className="pt-2 border-t space-y-2">
+                            <Label>Target Table</Label>
+                            <Input
+                              placeholder="Target table name (e.g. users, assets)"
+                              value={field.relationTable || ''}
+                              onChange={(e) =>
+                                updateField(index, { relationTable: e.target.value })
+                              }
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Name of the table to link to
+                            </p>
                           </div>
                         )}
                       </div>

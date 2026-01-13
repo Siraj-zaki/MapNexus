@@ -9,6 +9,7 @@ import multer from 'multer';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { convertFloorPlan } from '../services/conversion.js';
+import { saveFile } from '../services/customTable/uploadService.js';
 import { logger } from '../utils/logger.js';
 
 const router = Router();
@@ -241,6 +242,41 @@ router.get('/image/:jobId', async (req: Request, res: Response) => {
   } catch (error) {
     logger.error('Image error:', error);
     res.status(404).json({ success: false, error: 'Image file not found' });
+  }
+});
+
+/**
+ * Upload generic file (for custom tables)
+ * POST /api/upload/generic
+ */
+router.post('/generic', upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+
+    const { buffer, originalname, mimetype } = req.file;
+    // We can use the memory buffer here since we configured multer to use disk storage but we can read it?
+    // Wait, the existing multer configuration uses diskStorage. req.file.buffer will be undefined.
+    // We should read the file from disk using fs.readFile if we want to use saveFile which expects buffer.
+    // OR, we can just return the path since multer already saved it.
+
+    // The existing multer saves to uploads/temp.
+    // saveFile expects a buffer to save to uploads/.
+    // Let's just move the file.
+
+    const tempPath = req.file.path;
+    const fileBuffer = await fs.readFile(tempPath);
+
+    const result = await saveFile(fileBuffer, originalname, mimetype);
+
+    // Delete temp file
+    await fs.unlink(tempPath).catch(() => {});
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    logger.error('Generic upload error:', error);
+    next(error);
   }
 });
 

@@ -289,3 +289,127 @@ export const findIntersecting = async (
     geometry,
   });
 };
+
+/**
+ * Download table template
+ */
+export const downloadTableTemplate = async (
+  tableId: string,
+  format: 'csv' | 'xlsx'
+): Promise<void> => {
+  const response = await apiClient.get(`/custom-tables/${tableId}/template`, {
+    params: { format },
+    responseType: 'blob',
+  });
+
+  const blob = new Blob([response.data], {
+    type:
+      format === 'csv'
+        ? 'text/csv'
+        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+
+  // Try to get filename from content-disposition
+  const contentDisposition = response.headers['content-disposition'];
+  let filename = `template.${format}`;
+  if (contentDisposition) {
+    const match = contentDisposition.match(/filename="?([^"]+)"?/);
+    if (match && match[1]) filename = match[1];
+  }
+
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+export interface ImportResult {
+  success: boolean;
+  importedCount: number;
+  totalRows: number;
+  errors?: { row: number; errors: Record<string, string> }[];
+}
+
+export interface UploadResult {
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  url: string;
+}
+
+/**
+ * Upload generic file
+ */
+export const uploadFile = async (file: File): Promise<UploadResult> => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await apiClient.post('/upload/generic', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+
+  return response.data.data;
+};
+
+/**
+ * Import table data
+ */
+export const importTableData = async (tableId: string, file: File): Promise<ImportResult> => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await apiClient.post(`/custom-tables/${tableId}/import`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+
+  return response.data.data;
+};
+
+/**
+ * Export table data (full export)
+ */
+export const exportTableDataData = async (
+  tableId: string,
+  format: 'xlsx' | 'csv' | 'json'
+): Promise<void> => {
+  const response = await apiClient.get(`/custom-tables/${tableId}/export`, {
+    params: { format },
+    responseType: 'blob',
+  });
+
+  const mimeType =
+    format === 'json'
+      ? 'application/json'
+      : format === 'csv'
+      ? 'text/csv'
+      : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+  const blob = new Blob([response.data], { type: mimeType });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+
+  // Try to get filename
+  const contentDisposition = response.headers['content-disposition'];
+  let filename = `export.${format}`;
+  if (contentDisposition) {
+    const match = contentDisposition.match(/filename="?([^"]+)"?/);
+    if (match && match[1]) filename = match[1];
+  }
+
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};

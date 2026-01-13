@@ -64,6 +64,7 @@ interface EditorState {
   // Loading states
   isLoading: boolean;
   isSaving: boolean;
+  isPublished: boolean;
 
   // Actions
   setMap: (map: EditorMap | null) => void;
@@ -81,6 +82,7 @@ interface EditorState {
   redo: () => void;
   setLoading: (loading: boolean) => void;
   setSaving: (saving: boolean) => void;
+  setPublished: (published: boolean) => void;
   reset: () => void;
 }
 
@@ -97,6 +99,7 @@ const initialState = {
   canRedo: false,
   isLoading: false,
   isSaving: false,
+  isPublished: false,
 };
 
 export const useEditorStore = create<EditorState>()(
@@ -172,6 +175,8 @@ export const useEditorStore = create<EditorState>()(
       setLoading: (isLoading) => set({ isLoading }),
 
       setSaving: (isSaving) => set({ isSaving }),
+
+      setPublished: (isPublished) => set({ isPublished }),
 
       reset: () => set(initialState),
     }),

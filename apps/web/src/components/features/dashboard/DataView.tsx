@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { CreateTableDialog } from './CreateTableDialog';
+import { EditTableDialog } from './EditTableDialog';
 
 export function DataTablesView() {
   const { t } = useTranslation();
@@ -23,6 +24,7 @@ export function DataTablesView() {
   const [tables, setTables] = useState<CustomTable[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingTable, setEditingTable] = useState<CustomTable | null>(null);
 
   const loadTables = async () => {
     try {
@@ -137,6 +139,15 @@ export function DataTablesView() {
                     <DropdownMenuItem
                       onClick={(e) => {
                         e.stopPropagation();
+                        setEditingTable(table);
+                      }}
+                      className="hover:bg-white/10"
+                    >
+                      Edit Structure
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
                         handleDelete(table.id);
                       }}
                       className="hover:bg-white/10 text-red-400"
@@ -177,12 +188,23 @@ export function DataTablesView() {
         </div>
       )}
 
-      {/* Create Table Dialog */}
       <CreateTableDialog
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onSuccess={handleTableCreated}
       />
+
+      {editingTable && (
+        <EditTableDialog
+          isOpen={true}
+          table={editingTable}
+          onClose={() => setEditingTable(null)}
+          onSuccess={() => {
+            setEditingTable(null);
+            loadTables();
+          }}
+        />
+      )}
     </div>
   );
 }

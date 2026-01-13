@@ -100,6 +100,40 @@ export function validateFieldValue(value: any, field: CustomFieldDefinition): st
         errors.push(`Field "${field.displayName}" must be a valid UUID`);
       }
       break;
+
+    case 'IMAGE':
+      if (typeof value !== 'string') {
+        errors.push(`Field "${field.displayName}" must be an image URL string`);
+      } else if (!value.startsWith('http') && !value.startsWith('/')) {
+        errors.push(`Field "${field.displayName}" must be a valid URL or path`);
+      }
+      break;
+
+    case 'COLOR':
+      if (typeof value !== 'string') {
+        errors.push(`Field "${field.displayName}" must be a hex color string`);
+      } else if (!/^#[0-9A-Fa-f]{6}$/.test(value)) {
+        errors.push(`Field "${field.displayName}" must be a valid hex color code (e.g., #FF0000)`);
+      }
+      break;
+
+    case 'SELECT':
+      if (typeof value !== 'string') {
+        errors.push(`Field "${field.displayName}" must be a string`);
+      } else if (field.validation?.options && !field.validation.options.includes(value)) {
+        errors.push(
+          `Field "${field.displayName}" must be one of: ${field.validation.options.join(', ')}`
+        );
+      }
+      break;
+
+    case 'RELATION':
+      if (typeof value !== 'string') {
+        errors.push(`Field "${field.displayName}" must be a UUID string`);
+      } else if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+        errors.push(`Field "${field.displayName}" must be a valid UUID`);
+      }
+      break;
   }
 
   // Validate custom validation rules
@@ -178,7 +212,11 @@ export function validateGeoJSON(geojson: any, expectedType?: string): string[] {
     errors.push('Invalid GeoJSON: missing coordinates property');
   }
 
-  if (expectedType && geojson.type.toLowerCase() !== expectedType.toLowerCase()) {
+  if (
+    expectedType &&
+    expectedType.toUpperCase() !== 'GEOMETRY' &&
+    geojson.type.toLowerCase() !== expectedType.toLowerCase()
+  ) {
     errors.push(`Invalid GeoJSON: expected type ${expectedType}, got ${geojson.type}`);
   }
 

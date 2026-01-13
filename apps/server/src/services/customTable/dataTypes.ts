@@ -49,6 +49,10 @@ export const GEOMETRY_DATA_TYPES = {
 export const SPECIAL_DATA_TYPES = {
   IOT_SENSOR: 'IOT_SENSOR',
   TAGS: 'TAGS',
+  IMAGE: 'IMAGE',
+  COLOR: 'COLOR',
+  SELECT: 'SELECT',
+  RELATION: 'RELATION',
 } as const;
 
 // All data types combined
@@ -138,6 +142,29 @@ export function getPostgreSQLType(
   // Handle TAGS as TEXT array
   if (dataType === SPECIAL_DATA_TYPES.TAGS) {
     return 'TEXT[]';
+  }
+
+  // Handle IMAGE as TEXT (URL)
+  if (dataType === SPECIAL_DATA_TYPES.IMAGE) {
+    return 'TEXT';
+  }
+
+  // Handle COLOR as HEX string
+  if (dataType === SPECIAL_DATA_TYPES.COLOR) {
+    return 'VARCHAR(7)';
+  }
+
+  // Handle SELECT as TEXT (store the value)
+  // Validation handles ensuring it's a valid option
+  if (dataType === SPECIAL_DATA_TYPES.SELECT) {
+    return 'TEXT';
+  }
+
+  // Handle RELATION as UUID (Foreign Key)
+  // Ideally we should add FOREIGN KEY constraint, but for dynamic tables might be complex.
+  // For now just store the ID.
+  if (dataType === SPECIAL_DATA_TYPES.RELATION) {
+    return 'UUID';
   }
 
   // Handle types that need parameters

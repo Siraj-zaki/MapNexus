@@ -36,8 +36,17 @@ export const DATA_TYPES = {
   GEOMETRY_MULTIPOINT: 'GEOMETRY_MULTIPOINT',
   GEOMETRY_MULTIPOLYGON: 'GEOMETRY_MULTIPOLYGON',
 
-  // IoT
-  IOT_SENSOR: 'IOT_SENSOR',
+  // Media
+  IMAGE: 'IMAGE',
+
+  // UI
+  COLOR: 'COLOR',
+
+  // Enums/Select
+  SELECT: 'SELECT',
+
+  // Relations
+  RELATION: 'RELATION',
 
   // Other
   TAGS: 'TAGS',
@@ -56,6 +65,12 @@ export interface IoTConfig {
   maxValue?: number;
   threshold?: number;
   [key: string]: any;
+}
+
+export interface SelectOption {
+  label: string;
+  value: string;
+  color?: string;
 }
 
 // Custom field definition

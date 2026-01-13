@@ -3,7 +3,7 @@
  * Dynamic form for creating/editing records in custom tables
  */
 
-import { CustomTable, insertTableRecord, updateTableRecord } from '@/api/customTables';
+import { CustomTable, insertTableRecord, updateTableRecord, uploadFile } from '@/api/customTables';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -15,9 +15,16 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { MapPin, Save, Wifi } from 'lucide-react';
+import { MapPin, Save, Upload, Wifi } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface DynamicDataFormProps {
@@ -159,6 +166,8 @@ export function DynamicDataForm({
     displayName: string;
     dataType: string;
     maxLength?: number;
+    validation?: any;
+    relationTable?: string;
   }) => {
     const value = formData[field.name];
     const error = errors[field.name];
@@ -308,6 +317,107 @@ export function DynamicDataForm({
             onChange={(e) => handleChange(field.name, e.target.value)}
             placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
             className={`font-mono ${commonInputClass}`}
+          />
+        );
+
+      case 'COLOR':
+        return (
+          <div className="flex items-center gap-3">
+            <input
+              type="color"
+              value={value || '#000000'}
+              onChange={(e) => handleChange(field.name, e.target.value)}
+              className="h-10 w-10 p-1 rounded border cursor-pointer"
+            />
+            <Input
+              value={value || ''}
+              onChange={(e) => handleChange(field.name, e.target.value)}
+              placeholder="#000000"
+              maxLength={7}
+              className={`w-32 font-mono ${commonInputClass}`}
+            />
+          </div>
+        );
+
+      case 'SELECT':
+        return (
+          <Select value={value || ''} onValueChange={(val) => handleChange(field.name, val)}>
+            <SelectTrigger className={commonInputClass}>
+              <SelectValue placeholder="Select an option" />
+            </SelectTrigger>
+            <SelectContent>
+              {field.validation?.options?.map((opt: string) => (
+                <SelectItem key={opt} value={opt}>
+                  {opt}
+                </SelectItem>
+              )) || (
+                <SelectItem value="_no_opts" disabled>
+                  No options defined
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        );
+
+      case 'IMAGE':
+        const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          try {
+            const result = await uploadFile(file);
+            handleChange(field.name, result.url);
+          } catch (err) {
+            console.error('Upload failed', err);
+            alert('Failed to upload image');
+          }
+        };
+        return (
+          <div className="space-y-3">
+            {value && (
+              <div className="relative w-full h-40 bg-muted rounded-md overflow-hidden border">
+                <img src={value} alt="Preview" className="w-full h-full object-contain" />
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-2 right-2 w-6 h-6"
+                  onClick={() => handleChange(field.name, '')}
+                >
+                  <span className="sr-only">Remove</span>
+                  &times;
+                </Button>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Input
+                value={value || ''}
+                onChange={(e) => handleChange(field.name, e.target.value)}
+                placeholder="https://example.com/image.png"
+                className={`flex-1 ${commonInputClass}`}
+              />
+              <div className="relative">
+                <Button variant="outline" size="icon" className="cursor-pointer">
+                  <Upload className="h-4 w-4" />
+                </Button>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  onChange={handleFileUpload}
+                />
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'RELATION':
+        // TODO: Fetch related records and show a combobox.
+        // For now, simple input for ID or Key.
+        return (
+          <Input
+            value={value || ''}
+            onChange={(e) => handleChange(field.name, e.target.value)}
+            placeholder={`Enter ${field.relationTable || 'record'} ID`}
+            className={commonInputClass}
           />
         );
 

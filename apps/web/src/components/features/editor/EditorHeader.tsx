@@ -21,6 +21,7 @@ import {
   Building2,
   ChevronDown,
   Download,
+  Edit,
   ExternalLink,
   Home,
   Info,
@@ -80,7 +81,7 @@ function HeaderActionButton({
 export function EditorHeader() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { map, currentFloorId, setCurrentFloor } = useEditorStore();
+  const { map, currentFloorId, setCurrentFloor, isPublished, setPublished } = useEditorStore();
   const { user, logout } = useAuthStore();
 
   const currentFloor = map?.floors.find((f) => f.id === currentFloorId);
@@ -358,11 +359,12 @@ export function EditorHeader() {
           variant="purple"
         />
 
-        {/* Publish Button */}
+        {/* Publish/Edit Toggle */}
         <HeaderActionButton
-          icon={<Play className="h-4 w-4" />}
-          label={t('editor.actions.publish')}
-          variant="success"
+          icon={isPublished ? <Edit className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+          label={isPublished ? t('editor.actions.edit') : t('editor.actions.publish')}
+          variant={isPublished ? 'default' : 'success'}
+          onClick={() => setPublished(!isPublished)}
         />
       </div>
     </>

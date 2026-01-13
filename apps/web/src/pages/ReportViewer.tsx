@@ -334,6 +334,22 @@ export default function ReportViewer() {
     }
   };
 
+  // Auto-refresh for Live Reports
+  useEffect(() => {
+    if (!report?.config?.isLive || !report?.config?.refreshInterval) return;
+
+    const intervalSeconds = Math.max(5, report.config.refreshInterval); // Enforce min 5s
+    console.log(`Starting live refresh every ${intervalSeconds}s`);
+
+    const intervalId = setInterval(() => {
+      if (!isExecuting) {
+        executeReport(undefined, data?.page || 1);
+      }
+    }, intervalSeconds * 1000);
+
+    return () => clearInterval(intervalId);
+  }, [report?.config?.isLive, report?.config?.refreshInterval, isExecuting, data?.page]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-neutral-950">
@@ -371,7 +387,15 @@ export default function ReportViewer() {
             Back
           </Button>
           <div>
-            <h1 className="text-xl font-semibold">{report?.name || 'Report'}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-semibold">{report?.name || 'Report'}</h1>
+              {report?.config?.isLive && (
+                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 text-xs font-medium border border-green-500/30 animate-pulse">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                  LIVE
+                </span>
+              )}
+            </div>
             <p className="text-sm text-neutral-400">{report?.type} Report</p>
           </div>
         </div>

@@ -6,10 +6,13 @@
 import {
   CustomTable,
   deleteTableRecord,
+  downloadTableTemplate,
   exportTableAsGeoJSON,
+  exportTableDataData,
   getCustomTable,
   queryTableData,
 } from '@/api/customTables';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -42,16 +45,21 @@ import {
   ChevronRight,
   Download,
   Eye,
+  Link,
   MapPin,
   MoreHorizontal,
   Pencil,
   Plus,
   Search,
+  Settings,
   Trash2,
+  Upload,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DynamicDataForm } from './DynamicDataForm';
+import { EditTableDialog } from './EditTableDialog';
+import { ImportDataDialog } from './ImportDataDialog';
 
 // Cell renderer for different data types
 const CellRenderer = ({ value, dataType }: { value: any; dataType: string }) => {
@@ -123,6 +131,50 @@ const CellRenderer = ({ value, dataType }: { value: any; dataType: string }) => 
     return <span className="font-mono text-sm">{value}</span>;
   }
 
+  // Image Type
+  if (dataType === 'IMAGE') {
+    return (
+      <a
+        href={value}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block w-8 h-8 rounded overflow-hidden border bg-muted hover:scale-150 transition-transform origin-left z-10 relative"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img src={value} alt="Thumbnail" className="w-full h-full object-cover" />
+      </a>
+    );
+  }
+
+  // Color Type
+  if (dataType === 'COLOR') {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="w-4 h-4 rounded-full border shadow-sm" style={{ backgroundColor: value }} />
+        <span className="text-xs font-mono opacity-70">{value}</span>
+      </div>
+    );
+  }
+
+  // Select Type
+  if (dataType === 'SELECT') {
+    return (
+      <Badge variant="secondary" className="font-normal">
+        {value}
+      </Badge>
+    );
+  }
+
+  // Relation Type
+  if (dataType === 'RELATION') {
+    return (
+      <div className="flex items-center gap-1 text-primary">
+        <Link className="h-3 w-3" />
+        <span className="truncate max-w-[150px]">{value}</span>
+      </div>
+    );
+  }
+
   // Default text display
   const strValue = String(value);
   if (strValue.length > 50) {
@@ -164,6 +216,9 @@ export function DynamicTableView({ tableName: propTableName }: DynamicTableViewP
   // Form modal
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<any>(null);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isEditStructureOpen, setIsEditStructureOpen] = useState(false);
+  const [tableVersion, setTableVersion] = useState(0);
 
   const totalPages = Math.ceil(total / pageSize);
 
@@ -180,7 +235,7 @@ export function DynamicTableView({ tableName: propTableName }: DynamicTableViewP
       }
     };
     loadTable();
-  }, [tableName]);
+  }, [tableName, tableVersion]);
 
   // Load table data
   useEffect(() => {
@@ -320,18 +375,38 @@ export function DynamicTableView({ tableName: propTableName }: DynamicTableViewP
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setIsEditStructureOpen(true)}>
+            <Settings className="h-4 w-4 mr-2" />
+            Edit Structure
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Import
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
                 <Download className="h-4 w-4 mr-2" />
-                Export
+                Export / Template
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleExport('json')}>
-                Export as JSON
+              <DropdownMenuItem onClick={() => exportTableDataData(table!.id, 'json')}>
+                Export Data (JSON)
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('csv')}>Export as CSV</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportTableDataData(table!.id, 'csv')}>
+                Export Data (CSV)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportTableDataData(table!.id, 'xlsx')}>
+                Export Data (Excel)
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => downloadTableTemplate(table!.id, 'xlsx')}>
+                Download Excel Template
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => downloadTableTemplate(table!.id, 'csv')}>
+                Download CSV Template
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => handleExport('geojson')}>
                 <MapPin className="h-4 w-4 mr-2" />
@@ -509,6 +584,30 @@ export function DynamicTableView({ tableName: propTableName }: DynamicTableViewP
           onSuccess={handleFormSuccess}
           table={table}
           record={editingRecord}
+        />
+      )}
+
+      {table && (
+        <EditTableDialog
+          isOpen={isEditStructureOpen}
+          table={table}
+          onClose={() => setIsEditStructureOpen(false)}
+          onSuccess={() => {
+            setTableVersion((v) => v + 1);
+          }}
+        />
+      )}
+
+      {table && (
+        <ImportDataDialog
+          isOpen={isImportOpen}
+          table={table}
+          onClose={() => setIsImportOpen(false)}
+          onSuccess={() => {
+            setPage(1);
+            // Trigger reload
+            setTableVersion((v) => v + 1); // Or add another dependency for data reload, but this works
+          }}
         />
       )}
     </div>

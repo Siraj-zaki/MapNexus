@@ -2,6 +2,8 @@
  * Dashboard Page with URL-based state management
  */
 
+import { ApisView } from '@/components/features/dashboard/ApisView';
+import { FlowsView } from '@/components/features/flows/FlowsView';
 import { useModalParam, useQueryParams, useTabParam } from '@/hooks/useQueryParams';
 import { Folder, Grid } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -76,6 +78,12 @@ export default function Dashboard() {
 
       case 'dashboards':
         return <DashboardsView />;
+
+      case 'apis':
+        return <ApisView />;
+
+      case 'flows':
+        return <FlowsView />;
 
       default:
         return (

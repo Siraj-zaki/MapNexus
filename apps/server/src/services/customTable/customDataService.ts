@@ -4,6 +4,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import { triggerWorkflows } from '../workflow/index.js';
 import { getCustomTableByName } from './customTableService.js';
 import {
   buildGeometryInsertSQL,
@@ -49,7 +50,9 @@ export async function insertData(
 
   // Build SELECT columns for RETURNING to handle geometry
   const { columns: returnColumns } = buildGeometrySelectSQL(table.fields as any);
-  const returningSQL = returnColumns.length > 0 ? returnColumns.join(', ') : '*';
+  const selectColumns = new Set(returnColumns);
+  selectColumns.add('id');
+  const returningSQL = Array.from(selectColumns).join(', ');
 
   const sql = `
     INSERT INTO custom_${tableName} (${columns.join(', ')})
@@ -81,7 +84,15 @@ export async function insertData(
   }
 
   // Convert geometry columns back to GeoJSON for response
-  return convertToGeoJSON(row, table.fields as any);
+  const responseData = convertToGeoJSON(row, table.fields as any);
+
+  // TRIGGER WORKFLOWS
+  // Fire and forget - don't await so we don't block response
+  triggerWorkflows('RECORD_CREATED', table.id, responseData, userId).catch((err) =>
+    console.error('Failed to trigger workflows', err)
+  );
+
+  return responseData;
 }
 
 /**
@@ -97,7 +108,6 @@ export async function queryData(
     offset?: number;
   } = {}
 ): Promise<{ data: any[]; total: number }> {
-  // ... (unchanged implementation of queryData) ...
   const table = await getCustomTableByName(tableName);
   if (!table) {
     throw new Error(`Table "${tableName}" not found`);
@@ -118,8 +128,60 @@ export async function queryData(
 
   Object.entries(filters).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
-      whereClauses.push(`${key} = $${paramIndex}`);
-      params.push(value);
+      // Find field definition to determine type casting
+      const field = table.fields.find((f: any) => f.name === key);
+      let cast = '';
+
+      // Default implicit casts based on known types or if field is found
+      if (key === 'id' || (field && field.dataType === 'UUID')) {
+        cast = '::uuid';
+      } else if (field) {
+        switch (field.dataType) {
+          case 'INTEGER':
+          case 'BIGINT':
+            cast = '::integer';
+            break;
+          case 'BOOLEAN':
+            cast = '::boolean';
+            break;
+          // Add others as needed
+        }
+      }
+
+      if (typeof value === 'object' && value.op && value.value !== undefined) {
+        // Handle { op: 'gt', value: 10 }
+        const { op, value: val } = value;
+        switch (op) {
+          case 'equals':
+            whereClauses.push(`${key} = $${paramIndex}${cast}`);
+            break;
+          case 'not_equals':
+            whereClauses.push(`${key} != $${paramIndex}${cast}`);
+            break;
+          case 'gt':
+            whereClauses.push(`${key} > $${paramIndex}${cast}`);
+            break;
+          case 'gte':
+            whereClauses.push(`${key} >= $${paramIndex}${cast}`);
+            break;
+          case 'lt':
+            whereClauses.push(`${key} < $${paramIndex}${cast}`);
+            break;
+          case 'lte':
+            whereClauses.push(`${key} <= $${paramIndex}${cast}`);
+            break;
+          case 'contains':
+            whereClauses.push(`${key} ILIKE $${paramIndex}`);
+            break; // Case insensitive (Text only)
+          default:
+            whereClauses.push(`${key} = $${paramIndex}${cast}`);
+        }
+        params.push(op === 'contains' ? `%${val}%` : val);
+      } else {
+        // Default equality
+        whereClauses.push(`${key} = $${paramIndex}${cast}`);
+        params.push(value);
+      }
       paramIndex++;
     }
   });
@@ -202,7 +264,9 @@ export async function updateData(
 
   // Build RETURNING clause for geometry
   const { columns: returnColumns } = buildGeometrySelectSQL(table.fields as any);
-  const returningSQL = returnColumns.length > 0 ? returnColumns.join(', ') : '*';
+  const selectColumns = new Set(returnColumns);
+  selectColumns.add('id');
+  const returningSQL = Array.from(selectColumns).join(', ');
 
   // Build SET clause
   const columns = Object.keys(data);
@@ -300,7 +364,16 @@ export async function updateData(
     }
   }
 
-  return row ? convertToGeoJSON(row, table.fields as any) : null;
+  const responseData = row ? convertToGeoJSON(row, table.fields as any) : null;
+
+  if (responseData) {
+    // TRIGGER WORKFLOWS
+    triggerWorkflows('RECORD_UPDATED', table.id, responseData, userId).catch((err) =>
+      console.error('Failed to trigger workflows', err)
+    );
+  }
+
+  return responseData;
 }
 
 /**
@@ -492,4 +565,98 @@ export async function spatialQuery(
 
   // Convert geometry columns to GeoJSON
   return rows.map((row) => convertToGeoJSON(row, table.fields as any));
+}
+
+/**
+ * Bulk insert data into custom table
+ */
+export async function bulkInsertData(
+  tableName: string,
+  records: Record<string, any>[],
+  userId?: string
+): Promise<any[]> {
+  if (!records.length) return [];
+
+  // Get table definition for validation
+  const table = await getCustomTableByName(tableName);
+  if (!table) {
+    throw new Error(`Table "${tableName}" not found`);
+  }
+
+  // Validate all records first
+  for (const [index, data] of records.entries()) {
+    for (const field of table.fields) {
+      if (field.isRequired && (data[field.name] === undefined || data[field.name] === null)) {
+        throw new Error(`Record ${index + 1}: Required field "${field.displayName}" is missing`);
+      }
+    }
+  }
+
+  // Define Columns from Table Definition (excluding auto-generated)
+  const dbColumns: string[] = [];
+  const targetFields = table.fields.filter(
+    (f) => !['id', 'createdAt', 'updatedAt'].includes(f.name)
+  );
+
+  targetFields.forEach((field) => {
+    dbColumns.push(field.name);
+  });
+
+  const allValues: any[] = [];
+  const valuePlaceholders: string[] = [];
+  let paramIndex = 1;
+
+  for (const record of records) {
+    const convertedRecord = convertFromGeoJSON(record, table.fields as any);
+    const rowPlaceholders: string[] = [];
+
+    targetFields.forEach((field) => {
+      const val = convertedRecord[field.name] ?? null;
+      allValues.push(val);
+
+      if (field.dataType.startsWith('GEOMETRY')) {
+        rowPlaceholders.push(`ST_GeomFromGeoJSON($${paramIndex}::text)`);
+      } else {
+        rowPlaceholders.push(`$${paramIndex}`);
+      }
+      paramIndex++;
+    });
+
+    valuePlaceholders.push(`(${rowPlaceholders.join(', ')})`);
+  }
+
+  // Build Select for Returning
+  const { columns: returnColumns } = buildGeometrySelectSQL(table.fields as any);
+  const selectColumns = new Set(returnColumns);
+  selectColumns.add('id');
+  const returningSQL = Array.from(selectColumns).join(', ');
+
+  const sql = `
+    INSERT INTO custom_${tableName} (${dbColumns.join(', ')})
+    VALUES ${valuePlaceholders.join(', ')}
+    RETURNING ${returningSQL};
+  `;
+
+  const result = await prisma.$queryRawUnsafe(sql, ...allValues);
+  const rows = Array.isArray(result) ? result : [result];
+
+  // LOG HISTORY
+  try {
+    const historyEntries = rows.map((row: any) => ({
+      tableId: table.id,
+      recordId: row.id,
+      operation: 'INSERT',
+      performedBy: userId || 'SYSTEM',
+      changedFields: Object.keys(records[0] || {}),
+      previousData: {},
+    }));
+
+    await prisma.customDataHistory.createMany({
+      data: historyEntries,
+    });
+  } catch (err) {
+    console.error('Failed to log bulk insert history', err);
+  }
+
+  return rows.map((row: any) => convertToGeoJSON(row, table.fields as any));
 }

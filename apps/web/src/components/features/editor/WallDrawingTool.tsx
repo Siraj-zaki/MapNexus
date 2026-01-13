@@ -29,7 +29,6 @@ export function WallDrawingTool({ map, floorId }: WallDrawingToolProps) {
     drawing,
     nodes,
     startDrawing,
-    updatePreview,
     confirmSegment,
     finishDrawing,
     cancelDrawing,
@@ -55,6 +54,13 @@ export function WallDrawingTool({ map, floorId }: WallDrawingToolProps) {
   useEffect(() => {
     nodesRef.current = nodes;
   }, [nodes]);
+
+  // Reset drawing when switching tools
+  useEffect(() => {
+    if (!isWallTool && drawing.isActive) {
+      cancelDrawing();
+    }
+  }, [isWallTool, drawing.isActive, cancelDrawing]);
 
   // ---------------------------------------------------------------------------
   // Helper: Calculate Snap & Ortho Logic

@@ -22,6 +22,7 @@ import {
   Search,
   Server,
   Users,
+  Workflow,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -58,7 +59,9 @@ export function DashboardHeader({
     { key: 'data', label: t('dashboard.data'), icon: Server },
     { key: 'users', label: t('dashboard.users'), icon: Users },
     { key: 'reports', label: t('dashboard.reports'), icon: FileText },
+    { key: 'flows', label: 'Automation', icon: Workflow },
     { key: 'dashboards', label: t('dashboard.dashboards'), icon: LayoutDashboard },
+    { key: 'apis', label: 'APIs', icon: Server },
   ];
 
   const currentSortLabel =

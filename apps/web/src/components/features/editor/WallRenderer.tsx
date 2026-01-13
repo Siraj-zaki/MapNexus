@@ -5,6 +5,7 @@
  * Like Mappedin reference - thick gray walls with proper height.
  */
 
+import { useDoorStore } from '@/stores/doorStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useWallStore } from '@/stores/wallStore';
 import * as turf from '@turf/turf';
@@ -15,6 +16,7 @@ import { useCallback, useEffect, useRef } from 'react';
 // ============================================
 const WALLS_SOURCE_ID = 'walls-3d-solid-source';
 const WALLS_FILL_LAYER_ID = 'walls-3d-solid-layer';
+const WALL_OUTLINE_LAYER_ID = 'walls-3d-solid-layer-outline'; // Added constant for clean cleanup
 
 // Wall appearance settings - matching Mapbox 3D buildings style
 const WALL_HEIGHT_METERS = 3; // 3 meters tall
@@ -29,6 +31,7 @@ interface WallRendererProps {
 
 export function WallRenderer({ map, floorId }: WallRendererProps) {
   const { walls, getNodeById, isWallSelected } = useWallStore();
+  const { doors } = useDoorStore();
   const layersAdded = useRef(false);
 
   // Get walls for this floor
@@ -38,37 +41,130 @@ export function WallRenderer({ map, floorId }: WallRendererProps) {
   const generateGeoJSON = useCallback((): GeoJSON.FeatureCollection => {
     const features: GeoJSON.Feature[] = [];
 
+    // Get doors for this floor
+    const floorDoors = doors.filter((d) => d.floorId === floorId);
+
     for (const wall of floorWalls) {
       const startNode = getNodeById(wall.startNodeId);
       const endNode = getNodeById(wall.endNodeId);
 
       if (!startNode || !endNode) {
-        console.warn('WallRenderer: Missing node for wall', wall.id);
         continue;
       }
 
       try {
-        // Create line between start and end
-        const line = turf.lineString([startNode.position, endNode.position]);
+        const wallStart = startNode.position;
+        const wallEnd = endNode.position;
+        const wallLine = turf.lineString([wallStart, wallEnd]);
+        const wallLength = turf.length(wallLine, { units: 'meters' });
 
-        // Buffer to create thickness - use steps:1 for SHARP corners
-        const thickness = WALL_THICKNESS_METERS / 1000; // Convert to km
-        const polygon = turf.buffer(line, thickness / 2, {
-          units: 'kilometers',
-          steps: 1, // Sharp corners, not rounded
-        });
+        // Find doors on this wall
+        const myDoors = floorDoors.filter((d) => d.wallId === wall.id);
 
-        if (polygon && polygon.geometry) {
-          const selected = isWallSelected(wall.id);
-          features.push({
-            type: 'Feature',
-            properties: {
-              id: wall.id,
-              color: selected ? WALL_SELECTED_COLOR : WALL_COLOR,
-              height: WALL_HEIGHT_METERS,
-            },
-            geometry: polygon.geometry,
+        if (myDoors.length === 0) {
+          // No doors, render full wall
+          const thickness = WALL_THICKNESS_METERS / 1000;
+          const polygon = turf.buffer(wallLine, thickness / 2, {
+            units: 'kilometers',
+            steps: 1,
           });
+
+          if (polygon?.geometry) {
+            const selected = isWallSelected(wall.id);
+            features.push({
+              type: 'Feature',
+              properties: {
+                id: wall.id,
+                color: selected ? WALL_SELECTED_COLOR : WALL_COLOR,
+                height: WALL_HEIGHT_METERS,
+              },
+              geometry: polygon.geometry,
+            });
+          }
+        } else {
+          // Wall has doors, calculate segments
+          // 1. Calculate cutouts (intervals along the wall [start, end] in meters)
+          const cutouts: { min: number; max: number }[] = [];
+
+          for (const door of myDoors) {
+            // Project door position onto the wall line to get exact distance
+            const snapped = turf.nearestPointOnLine(wallLine, door.position.lngLat, {
+              units: 'meters',
+            });
+            const dist = snapped.properties?.location ?? 0;
+            const halfWidth = door.width / 2;
+
+            cutouts.push({
+              min: Math.max(0, dist - halfWidth),
+              max: Math.min(wallLength, dist + halfWidth),
+            });
+          }
+
+          // 2. Sort and merge overlapping cutouts
+          cutouts.sort((a, b) => a.min - b.min);
+
+          const mergedCutouts: { min: number; max: number }[] = [];
+          if (cutouts.length > 0) {
+            let current = cutouts[0];
+            for (let i = 1; i < cutouts.length; i++) {
+              const next = cutouts[i];
+              if (next.min < current.max) {
+                // Overlap or adjacent, merge
+                current.max = Math.max(current.max, next.max);
+              } else {
+                mergedCutouts.push(current);
+                current = next;
+              }
+            }
+            mergedCutouts.push(current);
+          }
+
+          // 3. Generate solid segments
+          const segments: { start: number; end: number }[] = [];
+          let currentPos = 0;
+
+          for (const cutout of mergedCutouts) {
+            if (cutout.min > currentPos + 0.01) {
+              // 1cm tolerance to avoid tiny slivers
+              segments.push({ start: currentPos, end: cutout.min });
+            }
+            currentPos = Math.max(currentPos, cutout.max);
+          }
+
+          if (currentPos < wallLength - 0.01) {
+            segments.push({ start: currentPos, end: wallLength });
+          }
+
+          // 4. Create geometry for each segment
+          for (const segment of segments) {
+            const segStartPt = turf.along(wallLine, segment.start, { units: 'meters' });
+            const segEndPt = turf.along(wallLine, segment.end, { units: 'meters' });
+            const segLine = turf.lineString([
+              segStartPt.geometry.coordinates,
+              segEndPt.geometry.coordinates,
+            ]);
+
+            // Create solid wall segment (no door header for now, or maybe add a header later?)
+            // User asked for "cut off", so full gap is appropriate for now.
+            const thickness = WALL_THICKNESS_METERS / 1000;
+            const polygon = turf.buffer(segLine, thickness / 2, {
+              units: 'kilometers',
+              steps: 1,
+            });
+
+            if (polygon?.geometry) {
+              const selected = isWallSelected(wall.id);
+              features.push({
+                type: 'Feature',
+                properties: {
+                  id: wall.id, // Keep same ID for selection
+                  color: selected ? WALL_SELECTED_COLOR : WALL_COLOR,
+                  height: WALL_HEIGHT_METERS,
+                },
+                geometry: polygon.geometry,
+              });
+            }
+          }
         }
       } catch (err) {
         console.error('WallRenderer: Error creating wall geometry', err);
@@ -77,7 +173,7 @@ export function WallRenderer({ map, floorId }: WallRendererProps) {
 
     console.log(`WallRenderer: Generated ${features.length} wall polygons`);
     return { type: 'FeatureCollection', features };
-  }, [floorWalls, getNodeById, isWallSelected]);
+  }, [floorWalls, getNodeById, isWallSelected, doors, floorId]);
 
   // Add source and layer
   useEffect(() => {
@@ -246,8 +342,7 @@ export function WallRenderer({ map, floorId }: WallRendererProps) {
   useEffect(() => {
     return () => {
       try {
-        if (map.getLayer(WALLS_FILL_LAYER_ID + '-outline'))
-          map.removeLayer(WALLS_FILL_LAYER_ID + '-outline');
+        if (map.getLayer(WALL_OUTLINE_LAYER_ID)) map.removeLayer(WALL_OUTLINE_LAYER_ID);
         if (map.getLayer(WALLS_FILL_LAYER_ID)) map.removeLayer(WALLS_FILL_LAYER_ID);
         if (map.getSource(WALLS_SOURCE_ID)) map.removeSource(WALLS_SOURCE_ID);
       } catch (e) {

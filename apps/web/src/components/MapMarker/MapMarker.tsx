@@ -1,0 +1,84 @@
+import { Tag } from 'lucide-react';
+
+export function MapMarker() {
+  return (
+    <div className="flex relative">
+      <Tag className="absolute top-3 left-6" />
+      <svg
+        width="70"
+        height="70"
+        viewBox="0 0 345 493"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M172.5 4C265.638 4 341 77.9499 341 169C341 260.05 265.638 334 172.5 334C79.3623 334 4 260.05 4 169C4 77.9499 79.3623 4 172.5 4Z"
+          fill="#383838"
+          stroke="white"
+          stroke-width="8"
+        />
+        <path
+          d="M41.8574 274.608L304.806 272.082L175.35 483.38L41.8574 274.608Z"
+          fill="#383838"
+          stroke="white"
+          stroke-width="8"
+        />
+        <g filter="url(#filter0_di_58_14754)">
+          <path
+            d="M310 168.5C310 243.335 249.111 304 174 304C98.8893 304 38 243.335 38 168.5C38 93.6654 98.8893 33 174 33C249.111 33 310 93.6654 310 168.5Z"
+            fill="black"
+          />
+          <path
+            d="M174 37.5C246.641 37.5 305.5 96.1663 305.5 168.5C305.5 240.834 246.641 299.5 174 299.5C101.359 299.5 42.5 240.834 42.5 168.5C42.5 96.1663 101.359 37.5 174 37.5Z"
+            stroke="white"
+            stroke-width="9"
+          />
+        </g>
+        <defs>
+          <filter
+            id="filter0_di_58_14754"
+            x="28"
+            y="27"
+            width="292"
+            height="291"
+            filterUnits="userSpaceOnUse"
+            color-interpolation-filters="sRGB"
+          >
+            <feFlood flood-opacity="0" result="BackgroundImageFix" />
+            <feColorMatrix
+              in="SourceAlpha"
+              type="matrix"
+              values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+              result="hardAlpha"
+            />
+            <feOffset dy="4" />
+            <feGaussianBlur stdDeviation="5" />
+            <feComposite in2="hardAlpha" operator="out" />
+            <feColorMatrix
+              type="matrix"
+              values="0 0 0 0 1 0 0 0 0 0.856915 0 0 0 0 0.856915 0 0 0 0.25 0"
+            />
+            <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_58_14754" />
+            <feBlend
+              mode="normal"
+              in="SourceGraphic"
+              in2="effect1_dropShadow_58_14754"
+              result="shape"
+            />
+            <feColorMatrix
+              in="SourceAlpha"
+              type="matrix"
+              values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+              result="hardAlpha"
+            />
+            <feOffset dy="4" />
+            <feGaussianBlur stdDeviation="5" />
+            <feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1" />
+            <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0" />
+            <feBlend mode="normal" in2="shape" result="effect2_innerShadow_58_14754" />
+          </filter>
+        </defs>
+      </svg>
+    </div>
+  );
+}

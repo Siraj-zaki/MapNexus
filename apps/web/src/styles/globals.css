@@ -89,3 +89,35 @@
     @apply bg-card/60 backdrop-blur-xl border-white/10;
   }
 }
+
+/* Mapbox Popup Customization */
+.map-popup-dark .mapboxgl-popup-content {
+  background: rgba(10, 10, 10, 0.85) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  border-radius: 12px !important;
+  padding: 0 !important;
+  overflow: hidden;
+  color: white;
+}
+
+.map-popup-dark .mapboxgl-popup-tip {
+  border-top-color: rgba(10, 10, 10, 0.85) !important;
+  border-bottom-color: rgba(10, 10, 10, 0.85) !important;
+}
+
+.map-popup-dark .mapboxgl-popup-close-button {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 16px;
+  right: 4px;
+  top: 4px;
+  border-radius: 50%;
+  padding: 4px 8px;
+}
+
+.map-popup-dark .mapboxgl-popup-close-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+}

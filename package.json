@@ -1,8 +1,8 @@
 {
-  "name": "indoor-map-platform",
+  "name": "map-nexus",
   "version": "0.1.0",
   "private": true,
-  "description": "Indoor mapping and IoT platform for retail and industrial applications",
+  "description": "The open-source operating system for indoor mapping, IoT intelligence, and spatial workflows.",
   "license": "MIT",
   "author": "Your Name <your.email@example.com>",
   "repository": {
