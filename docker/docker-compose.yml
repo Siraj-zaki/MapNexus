@@ -1,0 +1,86 @@
+services:
+  # PostgreSQL with PostGIS
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: indoor-map-postgres
+    restart: unless-stopped
+    ports:
+      - "5433:5432"  # Using 5433 on host to avoid conflict with local PostgreSQL
+    environment:
+      POSTGRES_USER: indoor_map
+      POSTGRES_PASSWORD: indoor_map_secret
+      POSTGRES_DB: indoor_map
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U indoor_map -d indoor_map"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - indoor-map-network
+
+  # Redis for caching and pub/sub
+  redis:
+    image: redis:7-alpine
+    container_name: indoor-map-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - indoor-map-network
+
+  # MQTT Broker for IoT devices
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: indoor-map-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_logs:/mosquitto/log
+    networks:
+      - indoor-map-network
+
+  # Redis Commander (optional - for development)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: indoor-map-redis-commander
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    depends_on:
+      - redis
+    profiles:
+      - dev-tools
+    networks:
+      - indoor-map-network
+
+volumes:
+  postgres_data:
+    name: indoor-map-postgres-data
+  redis_data:
+    name: indoor-map-redis-data
+  mosquitto_data:
+    name: indoor-map-mosquitto-data
+  mosquitto_logs:
+    name: indoor-map-mosquitto-logs
+
+networks:
+  indoor-map-network:
+    name: indoor-map-network
+    driver: bridge

@@ -1,0 +1,73 @@
+# General
+node_modules/
+./apps/web/node_modules/
+/apps/server/dist
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+# Keep example files
+!.env.example
+!.env.sample
+
+# Editors & IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+.sublime-workspace
+.sublime-project
+
+# Build Outputs
+dist/
+build/
+out/
+.next/
+*.tsbuildinfo
+
+# Dependencies
+# (node_modules is already at top, but adding lock files if you want to enforce specific one, usually keep lockfiles)
+
+# Web App (Vite/React)
+apps/web/files/
+apps/web/.vite/
+apps/web/dist/
+apps/web/node_modules/
+
+# Server App (NestJS/Node)
+apps/server/uploads/
+apps/server/dist/
+apps/server/node_modules/
+apps/server/prisma/*.db
+apps/server/prisma/*.sqlite
+apps/server/prisma/*.sqlite-journal
+
+# Docker
+docker/data/
+
+# Testing
+coverage/
+.nyc_output/
+reports/
+junit.xml
+
+# Temporary Files
+tmp/
+temp/
+*.tmp
+test-postgis.js
+
+# Misc
+.eslintcache

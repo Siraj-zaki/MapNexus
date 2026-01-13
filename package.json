@@ -1,0 +1,48 @@
+{
+  "name": "indoor-map-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Indoor mapping and IoT platform for retail and industrial applications",
+  "license": "MIT",
+  "author": "Your Name <your.email@example.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/indoor-map-platform.git"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:web": "npm run dev -w @indoor-map/web",
+    "dev:server": "npm run dev -w @indoor-map/server",
+    "build": "npm run build --workspaces --if-present",
+    "build:web": "npm run build -w @indoor-map/web",
+    "build:server": "npm run build -w @indoor-map/server",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "db:up": "docker-compose -f docker/docker-compose.yml up -d",
+    "db:down": "docker-compose -f docker/docker-compose.yml down",
+    "db:migrate": "npm run db:migrate -w @indoor-map/server",
+    "db:studio": "npm run db:studio -w @indoor-map/server",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "husky": "^9.0.6",
+    "lint-staged": "^15.2.0"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

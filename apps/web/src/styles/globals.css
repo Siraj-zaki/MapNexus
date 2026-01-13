@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 6%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    background-image: radial-gradient(
+        ellipse 80% 80% at 50% -20%,
+        rgba(120, 119, 198, 0.15),
+        transparent
+      ),
+      radial-gradient(ellipse 50% 50% at 80% 50%, rgba(78, 96, 232, 0.08), transparent),
+      radial-gradient(ellipse 50% 50% at 20% 80%, rgba(99, 102, 241, 0.08), transparent);
+    background-attachment: fixed;
+  }
+}
+
+/* Glassmorphism utilities */
+@layer utilities {
+  .glass {
+    @apply bg-card/60 backdrop-blur-xl border border-white/10;
+  }
+
+  .glass-lighter {
+    @apply bg-card/40 backdrop-blur-lg border border-white/5;
+  }
+
+  .glass-card {
+    @apply bg-card/70 backdrop-blur-xl border border-white/10 shadow-xl shadow-black/20;
+  }
+}
+
+/* Custom scrollbar */
+@layer base {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+}
+
+/* Override shadcn components for glass effect */
+@layer components {
+  /* Cards with glass effect */
+  .glass-effect [data-slot='card'],
+  .glass-effect .rounded-lg.border {
+    @apply bg-card/60 backdrop-blur-xl border-white/10;
+  }
+}

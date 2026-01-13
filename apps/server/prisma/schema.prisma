@@ -1,0 +1,506 @@
+// Prisma Schema for Indoor Map Platform
+// Supports PostgreSQL with PostGIS for spatial data
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+// ============================================
+// VENUE & FLOOR MANAGEMENT
+// ============================================
+
+model Venue {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  address     String?
+  latitude    Float?
+  longitude   Float?
+  timezone    String   @default("UTC")
+  metadata    Json?
+  isActive    Boolean  @default(true)
+  
+  floors      Floor[]
+  sensors     Sensor[]
+  zones       Zone[]
+  assets      Asset[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+model Floor {
+  id            String   @id @default(uuid())
+  venueId       String
+  venue         Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  
+  name          String
+  level         Int      // Floor number (0 = ground, -1 = basement, etc.)
+  floorPlanUrl  String?  // URL to floor plan image
+  geoJson       Json?    // GeoJSON FeatureCollection for floor layout
+  bounds        Json?    // GeoJSON bounds [[west, south], [east, north]]
+  rotation      Float    @default(0) // Rotation angle in degrees
+  opacity       Float    @default(1)
+  isActive      Boolean  @default(true)
+  
+  pois          POI[]
+  sensors       Sensor[]
+  zones         Zone[]
+  assets        Asset[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([venueId, level])
+  @@index([venueId])
+}
+
+// ============================================
+// POINTS OF INTEREST
+// ============================================
+
+model POI {
+  id          String   @id @default(uuid())
+  floorId     String
+  floor       Floor    @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  
+  name        String
+  category    String   // store, restroom, elevator, etc.
+  description String?
+  icon        String?  // Icon identifier
+  imageUrl    String?
+  
+  // Location as GeoJSON Point
+  location    Json     // { "type": "Point", "coordinates": [lng, lat] }
+  
+  // Business info (for retail)
+  businessHours Json?
+  contactInfo   Json?
+  
+  properties  Json?    // Additional custom properties
+  isActive    Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([floorId])
+  @@index([category])
+}
+
+// ============================================
+// ZONES
+// ============================================
+
+model Zone {
+  id          String   @id @default(uuid())
+  venueId     String
+  venue       Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  floorId     String
+  floor       Floor    @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  
+  name        String
+  type        String   // retail, restricted, loading, parking, etc.
+  color       String?  // Display color
+  
+  // Zone boundary as GeoJSON Polygon
+  geometry    Json     // { "type": "Polygon", "coordinates": [...] }
+  
+  properties  Json?
+  isActive    Boolean  @default(true)
+  
+  alerts      Alert[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([venueId])
+  @@index([floorId])
+  @@index([type])
+}
+
+// ============================================
+// IoT SENSORS
+// ============================================
+
+model Sensor {
+  id          String   @id @default(uuid())
+  venueId     String
+  venue       Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  floorId     String
+  floor       Floor    @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  
+  name        String
+  type        String   // ble, rfid, wifi, uwb, camera, environmental
+  macAddress  String?  @unique
+  serialNumber String?
+  model       String?
+  manufacturer String?
+  
+  // Location as GeoJSON Point
+  location    Json     // { "type": "Point", "coordinates": [lng, lat] }
+  
+  status      SensorStatus @default(ACTIVE)
+  config      Json?    // Sensor-specific configuration
+  metadata    Json?
+  
+  lastSeenAt  DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([venueId])
+  @@index([floorId])
+  @@index([type])
+  @@index([status])
+}
+
+enum SensorStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  OFFLINE
+}
+
+// ============================================
+// ASSETS (Trackable items)
+// ============================================
+
+model Asset {
+  id          String   @id @default(uuid())
+  venueId     String
+  venue       Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  floorId     String?
+  floor       Floor?   @relation(fields: [floorId], references: [id])
+  
+  name        String
+  type        String   // equipment, cart, person, vehicle
+  tagId       String?  @unique // BLE/RFID tag identifier
+  
+  // Current location as GeoJSON Point
+  location    Json?    // { "type": "Point", "coordinates": [lng, lat] }
+  
+  status      String   @default("active")
+  metadata    Json?
+  
+  lastSeenAt  DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([venueId])
+  @@index([type])
+  @@index([tagId])
+}
+
+// ============================================
+// ALERTS
+// ============================================
+
+model AlertRule {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  
+  // Condition definition (JSON DSL)
+  condition   Json     // e.g., { "type": "zone_entry", "zoneId": "..." }
+  
+  severity    AlertSeverity @default(MEDIUM)
+  
+  // Actions to take when triggered
+  actions     Json     // e.g., [{ "type": "email", "to": "..." }]
+  
+  isEnabled   Boolean  @default(true)
+  
+  alerts      Alert[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Alert {
+  id            String    @id @default(uuid())
+  ruleId        String
+  rule          AlertRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  zoneId        String?
+  zone          Zone?     @relation(fields: [zoneId], references: [id])
+  
+  message       String
+  severity      AlertSeverity
+  data          Json?     // Additional context data
+  
+  isAcknowledged Boolean  @default(false)
+  acknowledgedBy String?
+  acknowledgedAt DateTime?
+  
+  resolvedAt    DateTime?
+  
+  triggeredAt   DateTime  @default(now())
+
+  @@index([ruleId])
+  @@index([severity])
+  @@index([isAcknowledged])
+  @@index([triggeredAt])
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ============================================
+// USERS & AUTH
+// ============================================
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  password    String
+  name        String
+  avatar      String?
+  role        UserRole @default(VIEWER)
+  
+  isActive    Boolean  @default(true)
+  lastLoginAt DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  reportTemplates ReportTemplate[] @relation("ReportCreator")
+
+  @@index([email])
+  @@index([role])
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  OPERATOR
+  VIEWER
+}
+
+// ============================================
+// SENSOR READINGS (Time-series - use with TimescaleDB)
+// ============================================
+
+model SensorReading {
+  id        String   @id @default(uuid())
+  sensorId  String
+  
+  timestamp DateTime @default(now())
+  value     Float
+  unit      String?
+  metadata  Json?
+
+  @@index([sensorId, timestamp])
+  @@index([timestamp])
+}
+
+// ============================================
+// CUSTOM DYNAMIC TABLES
+// ============================================
+
+model CustomTable {
+  id          String   @id @default(uuid())
+  name        String   @unique  // Table name in the database (snake_case)
+  displayName String              // User-friendly display name
+  description String?
+  icon        String?             // Icon identifier
+  
+  fields      CustomField[]
+  history     CustomDataHistory[]
+  
+  isActive    Boolean  @default(true)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([name])
+  @@index([isActive])
+  @@index([createdBy])
+}
+
+model CustomField {
+  id              String      @id @default(uuid())
+  tableId         String
+  table           CustomTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  
+  name            String       // Field name in database (snake_case)
+  displayName     String       // User-friendly display name
+  description     String?
+  
+  dataType        String       // PostgreSQL data type (TEXT, INTEGER, DECIMAL, etc.)
+  isRequired      Boolean      @default(false)
+  isUnique        Boolean      @default(false)
+  isTimeseries    Boolean      @default(false)
+  defaultValue    String?
+  
+  // For VARCHAR, CHAR - length constraint
+  maxLength       Int?
+  
+  // For DECIMAL, NUMERIC - precision and scale
+  precision       Int?
+  scale           Int?
+  
+  // PostGIS Support - for spatial data types
+  srid            Int?         @default(4326)  // Spatial Reference System ID (4326 = WGS84, 3857 = Web Mercator)
+  geometryType    String?      // POINT, POLYGON, LINESTRING, MULTIPOINT, MULTIPOLYGON
+  
+  // IoT Configuration - for IoT sensor fields
+  iotConfig       Json?        // { sensorType, unit, minValue, maxValue, threshold, etc. }
+  
+  // For relations
+  relationTable   String?      // Related table name
+  relationField   String?      // Field in related table
+  onDelete        String?      // CASCADE, SET NULL, RESTRICT
+  
+  // Validation rules (JSON)
+  validation      Json?        // { min, max, pattern, enum, etc. }
+  
+  // Display properties
+  order           Int          @default(0)
+  isVisible       Boolean      @default(true)
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  @@unique([tableId, name])
+  @@index([tableId])
+  @@index([dataType])
+}
+
+model CustomDataHistory {
+  id            String      @id @default(uuid())
+  tableId       String
+  table         CustomTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  
+  recordId      String
+  operation     String      // INSERT, UPDATE, DELETE
+  previousData  Json?       // Previous state of the record (for updates/deletes)
+  changedFields String[]    // List of fields changed (for updates)
+  
+  performedBy   String?     // User ID who performed the action
+  performedAt   DateTime    @default(now())
+  
+  @@index([tableId])
+  @@index([recordId])
+  @@index([performedAt])
+}
+
+// ============================================
+// REPORT BUILDER & ANALYTICS
+// ============================================
+
+model ReportTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  layout      Json     // React-Grid-Layout positions {lg: [...], md: [...]}
+  paperSize   String   @default("A4") // A4, Letter, Legal
+  orientation String   @default("portrait") // portrait, landscape
+  
+  // Custom Report Config Support
+  type        String   @default("CUSTOM") // SUMMARY, DETAIL, MAP, etc.
+  config      Json?    // Full configuration object for simple reports
+  
+  createdBy   String
+  creator     User     @relation("ReportCreator", fields: [createdBy], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  widgets     ReportWidget[]
+  schedules   ReportSchedule[]
+  generated   GeneratedReport[]
+  
+  @@index([createdBy])
+}
+
+model ReportWidget {
+  id          String         @id @default(uuid())
+  templateId  String
+  template    ReportTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  
+  type        String         // CHART, MAP, TABLE, KPI_CARD, TEXT, IMAGE
+  title       String?
+  
+  // Data Source (references CustomTable)
+  dataSource  String?        // Custom table name (null for TEXT/IMAGE)
+  queryConfig Json?          // Filters, aggregations, groupBy, orderBy
+  
+  // Widget-Specific Configuration
+  chartConfig Json?          // chartType, xAxis, yAxis, colors, legend
+  mapConfig   Json?          // center, zoom, layers, markerStyle, heatmap
+  tableConfig Json?          // columns, pageSize, showTotals, groupBy
+  kpiConfig   Json?          // aggregation, format, icon, color, comparison
+  textContent String?        // For TEXT widget - rich text content
+  imageUrl    String?        // For IMAGE widget
+  
+  // Layout & Style
+  gridPosition Json          // {x, y, w, h} for react-grid-layout
+  style       Json?          // colors, fonts, borders, padding
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([templateId])
+  @@index([type])
+}
+
+model ReportSchedule {
+  id             String         @id @default(uuid())
+  templateId     String
+  template       ReportTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  
+  name           String?
+  cronExpression String         // "0 9 * * 1" = Monday 9am
+  timezone       String         @default("UTC")
+  recipients     String[]       // Email addresses
+  format         String         @default("PDF") // PDF, EXCEL, HTML
+  
+  isActive       Boolean        @default(true)
+  lastRun        DateTime?
+  nextRun        DateTime?
+  runCount       Int            @default(0)
+  
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  
+  @@index([templateId])
+  @@index([isActive])
+  @@index([nextRun])
+}
+
+model GeneratedReport {
+  id          String         @id @default(uuid())
+  templateId  String
+  template    ReportTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  
+  fileName    String
+  fileUrl     String         // Path to generated file
+  format      String         // PDF, EXCEL, HTML
+  fileSize    Int?           // Size in bytes
+  
+  status      String         @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  error       String?        // Error message if failed
+  
+  // Generation context
+  parameters  Json?          // Any runtime parameters used
+  generatedBy String?        // User ID or "SCHEDULED"
+  
+  generatedAt DateTime       @default(now())
+  expiresAt   DateTime?      // Auto-cleanup date
+  
+  @@index([templateId])
+  @@index([status])
+  @@index([generatedAt])
+}
